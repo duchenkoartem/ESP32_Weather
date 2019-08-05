@@ -8,7 +8,7 @@
 #define LED_GREEN 13
 #define LED_BLUE 15
 
-// Define LED state
+// Define LED states
 #define OFF 0
 #define RED 1
 #define GREEN 2
@@ -21,33 +21,29 @@
 #define HI_TEMP 25
 
 // Wifi
-const char* ssid     = "Dark_n_Ester_n_M";
-const char* password = "0NYPPZYQYG";
-//WiFiClient espClient;
+const char* ssid     = "Dark_n_Ester_n_M"; // Enter your wi-fi network SSID
+const char* password = "0NYPPZYQYG"; // Enter your wi-fi network pass
+// Replace with your SSID and password
+//const char* ssid     = "........"; // Enter your wi-fi network SSID
+//const char* password = "........"; // Enter your wi-fi network password
 
 //JSON Weather Input Server
-//PubSubClient client(espClient);
 const char* weather_server = "api.openweathermap.org";
-//char* servername ="api.openweathermap.org";  // remote server we will connect to
 String APIKEY = "a07521e340e0a8c642ea392958c6ed7f"; // personal API key
 String CityID = "703448"; //Kyiv city ID
 
 //MQTT Output Server
 const char* mqtt_server = "iot.eclipse.org";
 const char* OutTopic = "KievWeather";
-//PubSubClient client(espClient);
 
 // Project Variables
-int update_counter = 0;
+int update_counter = 0; // counts update period seconds
 
-float temperature = 0;
-int weatherID = 0;
-String weatherLocation = "";
-String weatherDescription ="";
+float temperature = 0; // global temperature variable 
+String weatherDescription =""; // date and time details
 
-String JsonInMassage = "";
-
-char OutMassage[100];
+#define OutMLength 30 // output MQTT massage length 
+#define DataMLength 10 // date massage length
 
 void setup() {
 
@@ -64,17 +60,20 @@ void loop() {
   // put your main code here, to run repeatedly:
   if (update_counter<=0)
   {
-    Serial.println("\nTry to get the weather");
+    Serial.println("\n-----------------------------------------------------------");
+    Serial.println("-----------------------------------------------------------");
+    Serial.print("Try to get the weather data");
     // start weathet update
     getWeatherData();
-    Serial.println ("\nFinished!");
-
+    Serial.println("-----------------------------------------------------------");
+    Serial.println("Try to send the weather data");
     sendWeatherData();
-
-     update_counter=UPDATE_PERIOD_S;
-     Serial.print("Update Timeout(");
-     Serial.print(UPDATE_PERIOD_S);
-     Serial.print("s):");
+    Serial.println("-----------------------------------------------------------");
+    Serial.println("-----------------------------------------------------------");
+    update_counter=UPDATE_PERIOD_S;
+    Serial.print("Update Timeout(");
+    Serial.print(UPDATE_PERIOD_S);
+    Serial.print("s):");
   }
   else
   {
@@ -87,25 +86,23 @@ void loop() {
 
 void sendWeatherData()
 {
+  char OutMassage[OutMLength]; // output MQTT massage buffer
+  
   WiFiClient espClient;
   PubSubClient client(espClient);
   client.setServer(mqtt_server, 1883);
-  //client.setCallback(callback);
+  
   if (!client.connected()) {
-    //reconnect();
-      // Loop until we're reconnected
+    //Reconnect
+    // Loop until we're reconnected
     while (!client.connected()) {
       Serial.print("Attempting MQTT connection...");
       // Create a random client ID
-      String clientId = "ESP8266Client-";
+      String clientId = "ESP32Client-";
       clientId += String(random(0xffff), HEX);
       // Attempt to connect
       if (client.connect(clientId.c_str())) {
         Serial.println("connected");
-        // Once connected, publish an announcement...
-        client.publish("outTopic", "hello world");
-        // ... and resubscribe
-        client.subscribe("inTopic");
       } else {
         Serial.print("failed, rc=");
         Serial.print(client.state());
@@ -117,50 +114,32 @@ void sendWeatherData()
   }
   client.loop();
 
-  
-  char date [11];
+  char date [DataMLength+1];
   weatherDescription.toCharArray(date,sizeof(date));
-  date[11] = '\0'; 
-  snprintf (OutMassage, 100, ("Date: %s Temp: %.2f"),date, temperature);
+  date[DataMLength+1] = '\0'; 
+  
+  snprintf (OutMassage, OutMLength, ("Date: %s Temp: %.2f"),date, temperature);
+  
   Serial.print("Publish message: ");
   Serial.println(OutMassage);
-  client.publish("KievWeather", OutMassage);
+  client.publish(OutTopic, OutMassage);
   client.disconnect();
+
+  Serial.println("DONE! ");
 }
-void reconnect() {
-//  // Loop until we're reconnected
-//  while (!client.connected()) {
-//    Serial.print("Attempting MQTT connection...");
-//    // Create a random client ID
-//    String clientId = "ESP8266Client-";
-//    clientId += String(random(0xffff), HEX);
-//    // Attempt to connect
-//    if (client.connect(clientId.c_str())) {
-//      Serial.println("connected");
-//      // Once connected, publish an announcement...
-//      client.publish("outTopic", "hello world");
-//      // ... and resubscribe
-//      client.subscribe("inTopic");
-//    } else {
-//      Serial.print("failed, rc=");
-//      Serial.print(client.state());
-//      Serial.println(" try again in 5 seconds");
-//      // Wait 5 seconds before retrying
-//      delay(5000);
-//    }
-//  }
-}
+
 void getWeatherData() //client function to send/receive GET request data.
 {
-  String JsonInMassage ="";
+  String JsonInMassage =""; // input Json massage buffer
+  
   WiFiClient client;
   const int httpPort = 80;
   if (!client.connect(weather_server, httpPort)) {
+        Serial.println (" - failed!");
         return;
     }
       // We now create a URI for the request
     String url = "/data/2.5/forecast?id="+CityID+"&units=metric&cnt=1&APPID="+APIKEY;
-      //String url = "/data/2.5/weather?q=London,uk&APPID=a07521e340e0a8c642ea392958c6ed7f";
        // This will send the request to the server
     client.print(String("GET ") + url + " HTTP/1.1\r\n" +
                  "Host: " + weather_server + "\r\n" +
@@ -182,15 +161,14 @@ void getWeatherData() //client function to send/receive GET request data.
   JsonInMassage.replace('[', ' ');
   JsonInMassage.replace(']', ' ');
 
-  Parse_Json(JsonInMassage);
+  Parse_Json(JsonInMassage); // parsing Json massage
 }
 
 void Parse_Json(String InputBuffer)
 {
   const size_t capacity = 2*JSON_OBJECT_SIZE(1) + 2*JSON_OBJECT_SIZE(2) + JSON_OBJECT_SIZE(4) + 2*JSON_OBJECT_SIZE(5) + JSON_OBJECT_SIZE(7) + JSON_OBJECT_SIZE(8) + 440;
   DynamicJsonBuffer jsonBuffer(capacity);
-  
-  //const char* json = "{\"cod\":\"200\",\"message\":0.0114,\"cnt\":1,\"list\":{\"dt\":1564920000,\"main\":{\"temp\":22.09,\"temp_min\":21.5,\"temp_max\":22.09,\"pressure\":1006.26,\"sea_level\":1006.26,\"grnd_level\":990.78,\"humidity\":37,\"temp_kf\":0.59},\"weather\":{\"id\":804,\"main\":\"Clouds\",\"description\":\"overcast clouds\",\"icon\":\"04d\"},\"clouds\":{\"all\":100},\"wind\":{\"speed\":5.2,\"deg\":351.275},\"sys\":{\"pod\":\"d\"},\"dt_txt\":\"2019-08-04 12:00:00\"},\"city\":{\"id\":703448,\"name\":\"Kiev\",\"coord\":{\"lat\":50.4333,\"lon\":30.5167},\"country\":\"UA\",\"timezone\":10800}}";
+    
   char json [InputBuffer.length()+1];
   InputBuffer.toCharArray(json,sizeof(json));
   json[InputBuffer.length() + 1] = '\0';
@@ -238,10 +216,11 @@ void Parse_Json(String InputBuffer)
   
   const char* city_country = city["country"]; // "UA"
   int city_timezone = city["timezone"]; // 10800
+  
 
-
-  Serial.println("-----------------------------------------------------------");
-  Serial.print("\nDate and Time: ");
+  Serial.println (" - success!");
+  //Serial.println("-----------------------------------------------------------");
+  Serial.print("Date and Time: ");
   Serial.print(list_dt_txt);
   Serial.print("\nWeatherID: ");
   Serial.print(city_id);
@@ -251,23 +230,26 @@ void Parse_Json(String InputBuffer)
   Serial.println(list_main_temp);
   Serial.println("-----------------------------------------------------------");
 
-  temperature = list_main_temp;
-  weatherDescription = list_dt_txt;
+  temperature = list_main_temp; // copy temperature value to global
+  weatherDescription = list_dt_txt; // copy date and time value to global
 
   if (temperature<LOW_TEMP)
   {
     SetLED(BLUE);
-    Serial.print("\n So cold!");
+    Serial.println("So cold!");
+    Serial.println("Blue LED ON");
   }
   else if (temperature>=HI_TEMP)
   {
     SetLED(RED);
-    Serial.print("\n So hot!");
+    Serial.println("So hot!");
+    Serial.println("Red LED ON");
   }
   else 
   {
     SetLED(GREEN);
-    Serial.print("\n Nice weather!");
+    Serial.println("Nice weather!");
+    Serial.println("Green LED ON");
   }
   
 }
