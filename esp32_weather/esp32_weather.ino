@@ -21,11 +21,9 @@
 #define HI_TEMP 25
 
 // Wifi
-const char* ssid     = "Dark_n_Ester_n_M"; // Enter your wi-fi network SSID
-const char* password = "0NYPPZYQYG"; // Enter your wi-fi network pass
 // Replace with your SSID and password
-//const char* ssid     = "........"; // Enter your wi-fi network SSID
-//const char* password = "........"; // Enter your wi-fi network password
+const char* ssid     = "........"; // Enter your wi-fi network SSID
+const char* password = "........"; // Enter your wi-fi network password
 
 //JSON Weather Input Server
 const char* weather_server = "api.openweathermap.org";
